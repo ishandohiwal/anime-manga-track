@@ -13,7 +13,6 @@
             --text-main: #f0f6fc;
             --text-muted: #8b949e;
             --accent: #f43f5e;
-            --accent-glow: rgba(244, 63, 94, 0.3);
         }
 
         * {
@@ -32,7 +31,6 @@
             overflow-x: hidden;
         }
 
-        /* Top Navigation Bar */
         nav {
             position: sticky;
             top: 0;
@@ -98,7 +96,6 @@
             width: 100%;
         }
 
-        /* Main Container Layout */
         .main-container {
             flex: 1;
             padding: 30px 40px;
@@ -111,12 +108,8 @@
             font-size: 1.4rem;
             font-weight: 700;
             margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
 
-        /* Genre Filter Pills Bar */
         .genre-bar {
             display: flex;
             gap: 10px;
@@ -145,7 +138,6 @@
             border-color: var(--accent);
         }
 
-        /* Trending Hero Banner */
         .trending-banner {
             position: relative;
             height: 380px;
@@ -200,7 +192,6 @@
             margin-bottom: 15px;
         }
 
-        /* Grids & Cards */
         .carousel-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -269,7 +260,6 @@
             justify-content: space-between;
         }
 
-        /* Modal Popup */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -430,7 +420,7 @@
         </ul>
         <div class="search-box">
             <span>🔍</span>
-            <input type="text" id="search-input" placeholder="Search any anime/manga..." onkeypress="handleSearch(event)">
+            <input type="text" id="search-input" placeholder="Search anime/manga..." onkeypress="handleSearch(event)">
         </div>
     </nav>
 
@@ -438,7 +428,6 @@
         <div class="loader">Waking up catalog servers... ✨</div>
     </div>
 
-    <!-- Details Modal -->
     <div class="modal-overlay" id="media-modal" onclick="closeModal(event)">
         <div class="modal-content" id="modal-box"></div>
     </div>
@@ -449,23 +438,22 @@
         let activeMedia = null;
         let userLibrary = JSON.parse(localStorage.getItem('otaku_library')) || {};
         
-        // Map MyAnimeList Genre IDs for filtering
         const GENRES = [
-            { id: '', name: 'All Genres' },
+            { id: '', name: 'All' },
             { id: 1, name: 'Action' },
             { id: 2, name: 'Adventure' },
             { id: 4, name: 'Comedy' },
             { id: 8, name: 'Drama' },
             { id: 10, name: 'Fantasy' },
             { id: 14, name: 'Horror' },
-            { id: 7, name: 'Mystery' },
             { id: 22, name: 'Romance' },
             { id: 24, name: 'Sci-Fi' },
             { id: 36, name: 'Slice of Life' },
-            { id: 30, name: 'Sports' },
-            { id: 37, name: 'Supernatural' }
+            { id: 30, name: 'Sports' }
         ];
         let selectedGenre = '';
+
+        const delay = ms => new Promise(res => setTimeout(res, ms));
 
         async function init() {
             await loadHomeView();
@@ -486,23 +474,19 @@
             else if (tab === 'library') loadLibraryView();
         }
 
-        // --- SAFE DELAY HELPER TO PREVENT API RATE LIMITING ---
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-
-        // --- HOME VIEW ---
         async function loadHomeView() {
             const container = document.getElementById('app-container');
             try {
-                const animeRes = await fetch(`${JIKAN_API}/top/anime?filter=airing&limit=6`);
-                const animeData = await animeRes.json();
+                const resAnime = await fetch(`${JIKAN_API}/top/anime?limit=10`);
+                const animeJson = await resAnime.json();
                 
-                await delay(400); // Prevent spamming limits
-                const mangaRes = await fetch(`${JIKAN_API}/top/manga?limit=12`);
-                const mangaData = await mangaRes.json();
+                await delay(350);
+                const resManga = await fetch(`${JIKAN_API}/top/manga?limit=10`);
+                const mangaJson = await resManga.json();
 
-                const trendingAnime = animeData.data || [];
-                const topManga = mangaData.data || [];
-                const hero = trendingAnime[0] || topManga[0];
+                const animeList = animeJson.data || [];
+                const mangaList = mangaJson.data || [];
+                const hero = animeList[0] || mangaList[0];
 
                 container.innerHTML = `
                     <div class="trending-banner" style="background-image: url('${hero.images.jpg.large_image_url}')">
@@ -510,68 +494,69 @@
                         <div class="trending-content">
                             <span class="trending-badge">Live Trending #1</span>
                             <h2 class="trending-title">${hero.title}</h2>
-                            <p class="trending-desc">${hero.synopsis || 'No synopsis description found.'}</p>
-                            <button onclick="openModal(${hero.mal_id}, '${trendingAnime.length ? 'anime' : 'manga'}')">Explore & Track</button>
+                            <p class="trending-desc">${hero.synopsis || 'No description available.'}</p>
+                            <button onclick="openModal(${hero.mal_id}, 'anime')">Explore & Track</button>
                         </div>
                     </div>
 
-                    <div class="section-title">🔥 Live Trending Anime</div>
+                    <div class="section-title">🔥 Trending Anime</div>
                     <div class="carousel-container">
-                        ${trendingAnime.map(item => renderCard(item, 'anime')).join('')}
+                        ${animeList.map(item => renderCard(item, 'anime')).join('')}
                     </div>
 
-                    <div class="section-title">📖 Popular Manga Masterpieces</div>
+                    <div class="section-title">📖 Popular Manga</div>
                     <div class="carousel-container">
-                        ${topManga.map(item => renderCard(item, 'manga')).join('')}
+                        ${mangaList.map(item => renderCard(item, 'manga')).join('')}
                     </div>
                 `;
             } catch (err) {
-                container.innerHTML = `<div class="loader">API rate limit reached or offline. Please wait 5 seconds and refresh!</div>`;
+                container.innerHTML = `<div class="loader">API rate limit encountered. Please wait a moment and refresh the page.</div>`;
             }
         }
 
-        // --- CATEGORY VIEW (Anime / Manga Hub with Genres) ---
         async function loadCategoryView(type) {
             const container = document.getElementById('app-container');
             
-            let url = `${JIKAN_API}/${type}?limit=24`;
-            if (selectedGenre) {
-                url = `${JIKAN_API}/${type}?genres=${selectedGenre}&limit=24`;
-            }
-
             container.innerHTML = `
-                <div class="section-title">
-                    <span>${type === 'anime' ? 'Anime Hub 🎬' : 'Manga Hub 📖'}</span>
-                </div>
+                <div class="section-title">${type === 'anime' ? 'Anime Hub 🎬' : 'Manga Hub 📖'}</div>
                 <div class="genre-bar">
                     ${GENRES.map(g => `
                         <div class="genre-pill ${selectedGenre === g.id ? 'active' : ''}" onclick="filterGenre('${type}', '${g.id}')">${g.name}</div>
                     `).join('')}
                 </div>
-                <div class="loader">Fetching catalog items...</div>
+                <div class="loader">Fetching items...</div>
             `;
 
             try {
-                const res = await fetch(url);
-                const data = (await res.json()).data || [];
+                let url = `${JIKAN_API}/top/${type}?limit=24`;
+                if (selectedGenre !== '') {
+                    url = `${JIKAN_API}/${type}?genres=${selectedGenre}&limit=24`;
+                }
 
-                const gridHTML = data.length > 0 ? data.map(item => renderCard(item, type)).join('') : `<div class="loader">No items found for this genre.</div>`;
+                const res = await fetch(url);
+                const json = await res.json();
+                let data = json.data || [];
+
+                // Fallback if genre query yields nothing
+                if (data.length === 0 && selectedGenre !== '') {
+                    const fallbackRes = await fetch(`${JIKAN_API}/top/${type}?limit=24`);
+                    const fallbackJson = await fallbackRes.json();
+                    data = fallbackJson.data || [];
+                }
 
                 container.innerHTML = `
-                    <div class="section-title">
-                        <span>${type === 'anime' ? 'Anime Hub 🎬' : 'Manga Hub 📖'}</span>
-                    </div>
+                    <div class="section-title">${type === 'anime' ? 'Anime Hub 🎬' : 'Manga Hub 📖'}</div>
                     <div class="genre-bar">
                         ${GENRES.map(g => `
                             <div class="genre-pill ${selectedGenre === g.id ? 'active' : ''}" onclick="filterGenre('${type}', '${g.id}')">${g.name}</div>
                         `).join('')}
                     </div>
                     <div class="carousel-container">
-                        ${gridHTML}
+                        ${data.map(item => renderCard(item, type)).join('')}
                     </div>
                 `;
             } catch (err) {
-                container.innerHTML = `<div class="loader">Failed to load hub data. Try selecting another genre.</div>`;
+                container.innerHTML = `<div class="loader">Failed to load hub data. Try refreshing.</div>`;
             }
         }
 
@@ -580,7 +565,6 @@
             loadCategoryView(type);
         }
 
-        // --- RENDER CARD ---
         function renderCard(item, type) {
             const score = item.score ? item.score : 'N/A';
             const count = type === 'anime' ? `${item.episodes || '?'} Eps` : `${item.chapters || '?'} Chs`;
@@ -600,25 +584,24 @@
             `;
         }
 
-        // --- SEARCH ACROSS ALL ANIME & MANGA ---
         async function handleSearch(e) {
             if (e.key !== 'Enter') return;
             const query = document.getElementById('search-input').value.trim();
             if (!query) return;
 
             const container = document.getElementById('app-container');
-            container.innerHTML = `<div class="loader">Searching entire database for "${query}"... 🔎</div>`;
+            container.innerHTML = `<div class="loader">Searching for "${query}"... 🔎</div>`;
 
             try {
-                const animeRes = await fetch(`${JIKAN_API}/anime?q=${query}&limit=12`);
-                const animeData = await animeRes.json();
+                const resAnime = await fetch(`${JIKAN_API}/anime?q=${query}&limit=12`);
+                const animeJson = await resAnime.json();
                 
-                await delay(400);
-                const mangaRes = await fetch(`${JIKAN_API}/manga?q=${query}&limit=12`);
-                const mangaData = await mangaRes.json();
+                await delay(350);
+                const resManga = await fetch(`${JIKAN_API}/manga?q=${query}&limit=12`);
+                const mangaJson = await resManga.json();
 
-                const animes = animeData.data || [];
-                const mangas = mangaData.data || [];
+                const animes = animeJson.data || [];
+                const mangas = mangaJson.data || [];
 
                 container.innerHTML = `
                     <div class="section-title">Search Results for "${query}"</div>
@@ -628,16 +611,15 @@
                     </div>
                 `;
             } catch (err) {
-                container.innerHTML = `<div class="loader">Search query failed. Please try again.</div>`;
+                container.innerHTML = `<div class="loader">Search failed. Please try again.</div>`;
             }
         }
 
-        // --- MODAL & TRACKER LOGIC ---
         async function openModal(id, type) {
             const modal = document.getElementById('media-modal');
             const box = document.getElementById('modal-box');
             modal.style.display = 'flex';
-            box.innerHTML = `<div class="loader">Loading media info...</div>`;
+            box.innerHTML = `<div class="loader">Loading info...</div>`;
 
             try {
                 const res = await fetch(`${JIKAN_API}/${type}/${id}`);
@@ -657,17 +639,17 @@
                             <div class="modal-tags">
                                 <span class="tag">Score: ★ ${data.score || 'N/A'}</span>
                                 <span class="tag">${data.status || 'Unknown'}</span>
-                                <span class="tag">${data.type || type.toUpperCase()} (${data.year || 'N/A'})</span>
+                                <span class="tag">${data.type || type.toUpperCase()}</span>
                             </div>
                             <p class="modal-synopsis">${data.synopsis || 'No synopsis details provided.'}</p>
                         </div>
                     </div>
                     <div class="tracker-controls">
                         <div class="tracker-row">
-                            <strong>Reading / Watch Status:</strong>
+                            <strong>Status:</strong>
                             <select id="track-status" onchange="updateTrackerData()">
                                 <option value="Planning" ${saved.status === 'Planning' ? 'selected' : ''}>📅 Plan to Watch/Read</option>
-                                <option value="Active" ${saved.status === 'Active' ? 'selected' : ''}>🔥 Currently Active</option>
+                                <option value="Active" ${saved.status === 'Active' ? 'selected' : ''}>🔥 Active</option>
                                 <option value="Completed" ${saved.status === 'Completed' ? 'selected' : ''}>✅ Completed</option>
                             </select>
                         </div>
@@ -683,7 +665,7 @@
                     </div>
                 `;
             } catch (err) {
-                box.innerHTML = `<div class="loader">Could not retrieve detailed data.</div>`;
+                box.innerHTML = `<div class="loader">Could not retrieve information.</div>`;
             }
         }
 
@@ -719,7 +701,6 @@
             localStorage.setItem('otaku_library', JSON.stringify(userLibrary));
         }
 
-        // --- LIBRARY VIEW ---
         function loadLibraryView() {
             const container = document.getElementById('app-container');
             const keys = Object.keys(userLibrary);
@@ -727,7 +708,7 @@
             if (keys.length === 0) {
                 container.innerHTML = `
                     <div class="section-title">My Tracked Library 📚</div>
-                    <div class="loader">Your library is currently empty. Explore the catalog and click any item to add it!</div>
+                    <div class="loader">Your library is empty. Click any item from the hubs to track it!</div>
                 `;
                 return;
             }
@@ -756,7 +737,6 @@
             `;
         }
 
-        // Boot app up
         init();
     </script>
 </body>
